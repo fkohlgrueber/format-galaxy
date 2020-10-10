@@ -1,0 +1,12 @@
+[package]
+name = "test-client"
+version = "0.1.0"
+authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+path = "test_client.rs"
+
+[dependencies]
+format-galaxy-core = { path = "../../core" }

@@ -1,0 +1,16 @@
+[package]
+name = "wasm"
+version = "0.1.0"
+authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+path = "wasm.rs"
+
+[dependencies]
+format-galaxy-core = { path = "../../core" }
+wasmprinter = "0.2.10"
+wat = "1.0.26"
+
+anyhow = "1.0"

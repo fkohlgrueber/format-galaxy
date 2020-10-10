@@ -1,0 +1,23 @@
+[package]
+name = "format-galaxy-host"
+version = "0.1.0"
+authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
+edition = "2018"
+
+[[bin]]
+name = "gcat"
+path = "src/gcat.rs"
+
+[[bin]]
+name = "edit"
+path = "src/edit.rs"
+
+[lib]
+name = "lib"
+path = "src/lib.rs"
+
+[dependencies]
+format-galaxy-core = { path = "../core" }
+wasmtime = "0.20.0"
+anyhow = "1.0"
+blake3 = "0.3.7"
