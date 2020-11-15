@@ -5,7 +5,7 @@ use std::path::PathBuf;
 fn main() -> Result<()> {
     println!("loading...");
     let base_path = "target/wasm32-unknown-unknown/release/";
-    let plugin = "bson";
+    let plugin = "wasm";
     let full_path: PathBuf = [base_path, &format!("{}{}", plugin, ".wasm")].iter().collect();
     let plugin = GalaxyFormatPlugin::new(&full_path)?;
 
@@ -30,9 +30,9 @@ fn main() -> Result<()> {
     
     // call editor, wait 'till it completes
     println!("open editor");
-    let _output = std::process::Command::new("gedit")
+    let _ = std::process::Command::new("vim")
         .arg(&tmp_filename)
-        .output()
+        .status()
         .expect("Failed to execute command");
 
     // read tmp file
