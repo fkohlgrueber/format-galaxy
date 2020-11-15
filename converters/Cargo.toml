@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "test-client",
+    "bson",
+    "wasm",
+]
+
+[profile.release]
+lto = true
+opt-level = "s"

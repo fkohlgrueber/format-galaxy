@@ -2,7 +2,4 @@
 members = [
     "core",
     "host",
-    "clients/test-client",
-    "clients/bson",
-    "clients/wasm",
 ]

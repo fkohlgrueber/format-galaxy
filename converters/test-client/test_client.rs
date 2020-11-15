@@ -1,6 +1,36 @@
 
 use format_galaxy_core::gen_plugin;
 
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
+// uncomment to trace allocations
+/*
+use std::alloc::{GlobalAlloc, System, Layout};
+
+extern "C" {
+    fn print_alloc(is_alloc: u32, ptr: u32, size: u32);
+}
+
+struct MyAllocator;
+
+unsafe impl GlobalAlloc for MyAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let ptr = System.alloc(layout);
+        print_alloc(1, ptr as u32, layout.size() as u32);
+        ptr
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        System.dealloc(ptr, layout);
+        print_alloc(0, ptr as u32, layout.size() as u32);
+    }
+}
+
+#[global_allocator]
+static GLOBAL: MyAllocator = MyAllocator;
+*/
+
 struct Impl {}
 
 impl format_galaxy_core::GalaxyFormat for Impl {

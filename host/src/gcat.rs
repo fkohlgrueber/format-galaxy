@@ -3,8 +3,8 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 fn main() -> Result<()> {
-    let base_path = "target/wasm32-unknown-unknown/release/";
-    let plugin = "wasm";
+    let base_path = "converters/target/wasm32-unknown-unknown/release/";
+    let plugin = "test_client";
     let full_path: PathBuf = [base_path, &format!("{}{}", plugin, ".wasm")].iter().collect();
     let plugin = GalaxyFormatPlugin::new(&full_path)?;
 

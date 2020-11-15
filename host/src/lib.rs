@@ -1,5 +1,3 @@
-use format_galaxy_core::ReturnData;
-
 use anyhow::Result;
 use wasmtime::*;
 
@@ -11,7 +9,12 @@ pub struct GalaxyFormatPlugin {
     store: Box<dyn Fn(u32, u32) -> WasmRes<u32>>,
     alloc: Box<dyn Fn(u32) -> WasmRes<u32>>,
     free: Box<dyn Fn(u32) -> WasmRes<()>>,
+    result_get_ptr: Box<dyn Fn(u32) -> WasmRes<u32>>,
+    result_get_len: Box<dyn Fn(u32) -> WasmRes<u32>>,
+    result_get_success: Box<dyn Fn(u32) -> WasmRes<u32>>,
 }
+
+//static mut COUNTER: i32 = 0;
 
 impl GalaxyFormatPlugin {
 
@@ -32,8 +35,22 @@ impl GalaxyFormatPlugin {
             std::fs::write(format!("cache/{}", hash.to_hex()), &serialized)?;
             module
         };
+
+        // uncomment to track allocations
+        /*
+        let print_alloc = Func::wrap(&store, |is_alloc: u32, ptr: u32, size: u32| {
+            unsafe {
+                if is_alloc>0 {
+                    COUNTER += size as i32;
+                } else {
+                    COUNTER -= size as i32;
+                }
+                println!("{}: {} ({}) --- {}", if is_alloc>0 { "Alloc" } else { "Dealloc" }, ptr, size, COUNTER);
+            }
+        });
+        */
         
-        let instance = Instance::new(&store, &module, &[])?;
+        let instance = Instance::new(&store, &module, &[/*print_alloc.into()*/])?;
     
         let memory = instance
             .get_memory("memory")
@@ -55,6 +72,18 @@ impl GalaxyFormatPlugin {
             .get_func("free")
             .ok_or(anyhow::format_err!("failed to find `free` function export"))?
             .get1::<u32, ()>()?;
+        let result_get_ptr = instance
+            .get_func("result_get_ptr")
+            .ok_or(anyhow::format_err!("failed to find `result_get_ptr` function export"))?
+            .get1::<u32, u32>()?;
+        let result_get_len = instance
+            .get_func("result_get_len")
+            .ok_or(anyhow::format_err!("failed to find `result_get_len` function export"))?
+            .get1::<u32, u32>()?;
+        let result_get_success = instance
+            .get_func("result_get_success")
+            .ok_or(anyhow::format_err!("failed to find `result_get_success` function export"))?
+            .get1::<u32, u32>()?;
 
         Ok(GalaxyFormatPlugin {
             memory, 
@@ -62,6 +91,9 @@ impl GalaxyFormatPlugin {
             store: Box::new(store), 
             alloc: Box::new(alloc), 
             free: Box::new(free),
+            result_get_ptr: Box::new(result_get_ptr),
+            result_get_len: Box::new(result_get_len),
+            result_get_success: Box::new(result_get_success),
         })
     }
 
@@ -91,14 +123,19 @@ impl GalaxyFormatPlugin {
         let res_ptr = f(ptr as u32, len as u32).unwrap();
 
         // get result
-        let x: &ReturnData = unsafe {
+        let ptr = (self.result_get_ptr)(res_ptr).unwrap();
+        let len = (self.result_get_len)(res_ptr).unwrap();
+        let success = (self.result_get_success)(res_ptr).unwrap() > 0;
+
+        /*let x: &ReturnData = unsafe {
             let y: *const u8 = &self.memory.data_unchecked_mut()[res_ptr as usize];
             let cast_res: *const ReturnData = y.cast();
             &*cast_res
         };
-        let success = x.success;
+        let success = x.success;*/
         let v = unsafe {
-            let s_slice = &self.memory.data_unchecked()[x.ptr as usize..][..x.len as usize];
+            let s_slice = &self.memory.data_unchecked()[ptr as usize..][..len as usize];
+            //let s_slice = &self.memory.data_unchecked()[x.ptr as usize..][..x.len as usize];
             s_slice.to_vec()
         };
 

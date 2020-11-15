@@ -7,18 +7,17 @@ pub trait GalaxyFormat
     fn store(s: &str) -> Result<Vec<u8>, String>;
 }
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct ReturnData {
-    pub ptr: u32,
-    pub len: u32,
-    pub capacity: u32,
-    pub success: bool
-}
-
-
 pub mod __mi {
     use super::*;
+
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct ReturnData {
+        pub ptr: u32,
+        pub len: u32,
+        pub capacity: u32,
+        pub success: bool
+    }
 
     pub fn present<T: GalaxyFormat>(ptr: *mut u8, len: u32) -> *mut ReturnData {
         // input is a byte slice
@@ -34,6 +33,7 @@ pub mod __mi {
     }
 
     pub fn store<T: GalaxyFormat>(ptr: *mut u8, len: u32) -> *mut ReturnData {
+        // input is a utf-8 string
         let s = unsafe { String::from_raw_parts(ptr, len as usize, len as usize) };
         let res = <T as GalaxyFormat>::store(&s);
         let success = res.is_ok();
@@ -54,6 +54,18 @@ pub mod __mi {
         };
         let res_box = Box::new(res_data);
         std::boxed::Box::into_raw(res_box)
+    }
+
+    pub fn result_get_ptr(ptr: *mut ReturnData) -> u32 {
+        return unsafe { (*ptr).ptr };
+    }
+
+    pub fn result_get_len(ptr: *mut ReturnData) -> u32 {
+        return unsafe { (*ptr).len };
+    }
+
+    pub fn result_get_success(ptr: *mut ReturnData) -> u32 {
+        return unsafe { (*ptr).success as u32 };
     }
     
     pub fn alloc(n: u32) -> *mut u8 {
@@ -85,12 +97,12 @@ macro_rules! gen_plugin {
             use super::*;
 
             #[no_mangle]
-            pub extern "C" fn present(ptr: *mut u8, len: u32) -> *mut format_galaxy_core::ReturnData {
+            pub extern "C" fn present(ptr: *mut u8, len: u32) -> *mut format_galaxy_core::__mi::ReturnData {
                 format_galaxy_core::__mi::present::<$impl_type>(ptr, len)
             }
             
             #[no_mangle]
-            pub extern "C" fn store(ptr: *mut u8, len: u32) -> *mut format_galaxy_core::ReturnData {
+            pub extern "C" fn store(ptr: *mut u8, len: u32) -> *mut format_galaxy_core::__mi::ReturnData {
                 format_galaxy_core::__mi::store::<$impl_type>(ptr, len)
             }
             
@@ -100,9 +112,25 @@ macro_rules! gen_plugin {
             }
             
             #[no_mangle]
-            pub extern "C" fn free(ptr: *mut format_galaxy_core::ReturnData) {
+            pub extern "C" fn free(ptr: *mut format_galaxy_core::__mi::ReturnData) {
                 format_galaxy_core::__mi::free(ptr)
             }
+
+            #[no_mangle]
+            pub extern "C" fn result_get_ptr(ptr: *mut format_galaxy_core::__mi::ReturnData) -> u32 {
+                format_galaxy_core::__mi::result_get_ptr(ptr)
+            }
+
+            #[no_mangle]
+            pub extern "C" fn result_get_len(ptr: *mut format_galaxy_core::__mi::ReturnData) -> u32 {
+                format_galaxy_core::__mi::result_get_len(ptr)
+            }
+
+            #[no_mangle]
+            pub extern "C" fn result_get_success(ptr: *mut format_galaxy_core::__mi::ReturnData) -> u32 {
+                format_galaxy_core::__mi::result_get_success(ptr)
+            }
+
         }
     };
 }

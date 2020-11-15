@@ -10,3 +10,4 @@ path = "test_client.rs"
 
 [dependencies]
 format-galaxy-core = { path = "../../core" }
+wee_alloc = "0.4.5"

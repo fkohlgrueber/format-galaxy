@@ -5,7 +5,7 @@ use std::path::PathBuf;
 fn main() -> Result<()> {
     println!("loading...");
     let base_path = "target/wasm32-unknown-unknown/release/";
-    let plugin = "wasm";
+    let plugin = "bson";
     let full_path: PathBuf = [base_path, &format!("{}{}", plugin, ".wasm")].iter().collect();
     let plugin = GalaxyFormatPlugin::new(&full_path)?;
 
