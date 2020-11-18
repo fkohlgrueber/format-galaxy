@@ -3,6 +3,8 @@ members = [
     "test-client",
     "bson",
     "wasm",
+    "byte-sequence",
+    "json-like",
 ]
 
 [profile.release]

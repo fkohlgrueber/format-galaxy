@@ -1,0 +1,13 @@
+[package]
+name = "byte-sequence"
+version = "0.1.0"
+authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib"]
+path = "byte_sequence.rs"
+
+[dependencies]
+format-galaxy-core = { path = "../../core" }
+wee_alloc = "0.4.5"
