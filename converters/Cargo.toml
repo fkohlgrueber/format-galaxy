@@ -4,7 +4,9 @@ members = [
     "bson",
     "wasm",
     "byte-sequence",
-    "json-like",
+    "json-like/json-like",
+    "json-like/json-like-indent",
+    "json-like/value",
 ]
 
 [profile.release]

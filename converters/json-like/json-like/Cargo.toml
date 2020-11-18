@@ -9,6 +9,6 @@ crate-type = ["cdylib"]
 path = "json_like.rs"
 
 [dependencies]
-format-galaxy-core = { path = "../../core" }
+json-like-value = { path = "../value" }
+format-galaxy-core = { path = "../../../core" }
 wee_alloc = "0.4.5"
-indexmap = "1.6.0"

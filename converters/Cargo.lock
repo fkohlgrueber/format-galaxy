@@ -119,8 +119,24 @@ name = "json-like"
 version = "0.1.0"
 dependencies = [
  "format-galaxy-core",
- "indexmap",
+ "json-like-value",
  "wee_alloc",
+]
+
+[[package]]
+name = "json-like-indent"
+version = "0.1.0"
+dependencies = [
+ "format-galaxy-core",
+ "json-like-value",
+ "wee_alloc",
+]
+
+[[package]]
+name = "json-like-value"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
 ]
 
 [[package]]

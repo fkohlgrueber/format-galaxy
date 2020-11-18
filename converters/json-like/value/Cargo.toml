@@ -1,0 +1,11 @@
+[package]
+name = "json-like-value"
+version = "0.1.0"
+authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
+edition = "2018"
+
+[lib]
+path = "value.rs"
+
+[dependencies]
+indexmap = "1.6.0"
