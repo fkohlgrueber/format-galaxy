@@ -1,3 +1,9 @@
+mod index;
+
+pub use index::Galaxy;
+use index::FormatId;
+use std::io::{Read, Write};
+
 use anyhow::Result;
 use wasmtime::*;
 
@@ -32,7 +38,8 @@ impl GalaxyFormatPlugin {
             let module = Module::from_file(&engine, path)?;
             println!("caching module");
             let serialized = module.serialize()?;
-            std::fs::write(format!("cache/{}", hash.to_hex()), &serialized)?;
+            std::fs::create_dir_all("cache/compiled/")?;
+            std::fs::write(format!("cache/compiled/{}", hash.to_hex()), &serialized)?;
             module
         };
 
@@ -149,4 +156,28 @@ impl GalaxyFormatPlugin {
             Err(String::from_utf8(v).unwrap())
         }
     }
+}
+
+static PRELUDE: &[u8; 8] = b"FMTGALv1";
+
+pub fn read_file(path: &std::path::Path) -> Result<(FormatId, Vec<u8>)> {
+    let mut f = std::fs::File::open(path)?;
+    let mut buf = [0u8; 8];
+    f.read_exact(&mut buf)?;
+    if buf != *PRELUDE {
+        return Err(anyhow::anyhow!("Invalid prelude!"));
+    }
+    f.read_exact(&mut buf)?;
+    let format_id = FormatId(u64::from_le_bytes(buf));
+    let mut bytes = vec!();
+    f.read_to_end(&mut bytes)?;
+    Ok((format_id, bytes))
+}
+
+pub fn write_file(path: &std::path::Path, format_id: FormatId, bytes: &[u8]) -> Result<()> {
+    let mut f = std::fs::File::open(path)?;
+    f.write(PRELUDE)?;
+    f.write(&format_id.0.to_le_bytes())?;
+    f.write(bytes)?;
+    Ok(())
 }
