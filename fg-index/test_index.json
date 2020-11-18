@@ -1,0 +1,17 @@
+{
+  "formats": {
+    "2": {
+      "name": "Sequence of bytes",
+      "desc": "This is a really simple binary file format. Each byte represents a single unsigned number.",
+      "converters": {
+        "001100110011": {
+          "name": "Bytes",
+          "desc": "Comma-separated list of bytes (e.g. `1,2,3`).",
+          "versions": [
+            ["0.1.0", "d14ea3e27f3235e7488b0af9875d952e1b7c13c267049c89676fcbd4f13f7356"]
+          ]
+        }
+      }
+    }
+  }
+}
