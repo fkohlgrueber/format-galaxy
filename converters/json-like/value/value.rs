@@ -408,7 +408,11 @@ impl Value {
     pub fn parse(s: &str) -> Result<Self, String> {
         let tokens = Tokenizer::new(s).tokenize()?;
         let mut iter = tokens.into_iter().peekable();
-        Self::parse_(&mut iter)
+        let res = Self::parse_(&mut iter);
+        if iter.next().is_some() {
+            return Err("Unexpected characters".to_string())
+        }
+        res
     }
 
     fn parse_(iter: &mut std::iter::Peekable<std::vec::IntoIter<Token>>) -> Result<Self, String> {

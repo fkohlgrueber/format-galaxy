@@ -29,7 +29,8 @@
           "name": "Json-like",
           "desc": "A syntax similar to json",
           "versions": [
-            ["0.1.0", "d68617f36e439c2fc7b73ec9e4cd728c0bdbad1aaa8f2ac2e425f26845ef997a"]
+            ["0.1.0", "d68617f36e439c2fc7b73ec9e4cd728c0bdbad1aaa8f2ac2e425f26845ef997a"],
+            ["0.1.1", "697b91d6b4abc7398688698929a29cd593c046338fd9338da9dd811ae72112c5"]
           ]
         }
       }
