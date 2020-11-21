@@ -12,6 +12,20 @@
           ]
         }
       }
+    },
+    "100": {
+      "name": "Json-like",
+      "desc": "A binary format that has a data model similar to Json.",
+      "converters": {
+        "001100110011": {
+          "name": "Json-like",
+          "desc": "A syntax similar to json",
+          "versions": [
+            ["0.1.0", "d68617f36e439c2fc7b73ec9e4cd728c0bdbad1aaa8f2ac2e425f26845ef997a"]
+          ]
+        }
+      }
     }
+
   }
 }
