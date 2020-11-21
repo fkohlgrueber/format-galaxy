@@ -35,6 +35,10 @@ impl Galaxy {
     pub fn from_json(path: &std::path::Path) -> Result<Galaxy> {
         Ok(serde_json::from_slice(&std::fs::read(path)?)?)
     }
+
+    pub fn from_json_str(s: &str) -> Result<Galaxy> {
+        Ok(serde_json::from_str(s)?)
+    }
 }
 
 

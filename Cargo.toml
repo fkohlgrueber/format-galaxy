@@ -2,4 +2,7 @@
 members = [
     "core",
     "host",
+    "web-host",
+    "crates/fg-index",
+    "crates/fg-plugin",
 ]

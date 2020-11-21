@@ -1,28 +1,75 @@
-mod index;
-
-pub use index::Galaxy;
-use index::FormatId;
+use fg_index::FormatId;
+pub use fg_index::Galaxy;
 use std::io::{Read, Write};
+pub use fg_plugin::GalaxyFormatPluginV1;
+use fg_plugin::GalaxyFormatPluginV1_;
 
 use anyhow::Result;
 use wasmtime::*;
 
 type WasmRes<T> = std::result::Result<T, wasmtime::Trap>;
 
-pub struct GalaxyFormatPlugin {
+pub struct WasmtimeGalaxyFormatPlugin {
     memory: Memory,
-    present: Box<dyn Fn(u32, u32) -> WasmRes<u32>>,
-    store: Box<dyn Fn(u32, u32) -> WasmRes<u32>>,
-    alloc: Box<dyn Fn(u32) -> WasmRes<u32>>,
-    free: Box<dyn Fn(u32) -> WasmRes<()>>,
-    result_get_ptr: Box<dyn Fn(u32) -> WasmRes<u32>>,
-    result_get_len: Box<dyn Fn(u32) -> WasmRes<u32>>,
-    result_get_success: Box<dyn Fn(u32) -> WasmRes<u32>>,
+    present_fn: Box<dyn Fn(u32, u32) -> WasmRes<u32>>,
+    store_fn: Box<dyn Fn(u32, u32) -> WasmRes<u32>>,
+    alloc_fn: Box<dyn Fn(u32) -> WasmRes<u32>>,
+    free_fn: Box<dyn Fn(u32) -> WasmRes<()>>,
+    result_get_ptr_fn: Box<dyn Fn(u32) -> WasmRes<u32>>,
+    result_get_len_fn: Box<dyn Fn(u32) -> WasmRes<u32>>,
+    result_get_success_fn: Box<dyn Fn(u32) -> WasmRes<u32>>,
+}
+
+impl GalaxyFormatPluginV1_ for WasmtimeGalaxyFormatPlugin {
+    fn alloc(&self, size: u32) -> Result<u32> {
+        Ok((self.alloc_fn)(size)?)
+    }
+
+    fn free(&self, ptr: u32) -> Result<()> {
+        Ok((self.free_fn)(ptr)?)
+    }
+
+    fn present(&self, ptr: u32, size: u32) -> Result<u32> {
+        Ok((self.present_fn)(ptr, size)?)
+    }
+    
+    fn store(&self, ptr: u32, size: u32) -> Result<u32> {
+        Ok((self.store_fn)(ptr, size)?)
+    }
+    
+    fn result_get_ptr(&self, res_ptr: u32) -> Result<u32> {
+        Ok((self.result_get_ptr_fn)(res_ptr)?)
+    }
+    
+    fn result_get_len(&self, res_ptr: u32) -> Result<u32> {
+        Ok((self.result_get_len_fn)(res_ptr)?)
+    }
+    
+    fn result_get_success(&self, res_ptr: u32) -> Result<bool> {
+        Ok((self.result_get_success_fn)(res_ptr)? > 0)
+    }
+    
+    
+    fn memory_write(&self, ptr: u32, bytes: &[u8]) -> Result<()> {
+        unsafe {
+            self.memory.data_unchecked_mut()[ptr as usize .. ptr as usize + bytes.len()].clone_from_slice(bytes);
+        }
+        Ok(())
+    }
+    
+    fn memory_read(&self, ptr: u32, len: u32) -> Result<Vec<u8>> {
+        let bytes = unsafe {
+            let s_slice = &self.memory.data_unchecked()[ptr as usize..][..len as usize];
+            //let s_slice = &self.memory.data_unchecked()[x.ptr as usize..][..x.len as usize];
+            s_slice.to_vec()
+        };
+        Ok(bytes)
+    }
 }
 
 //static mut COUNTER: i32 = 0;
 
-impl GalaxyFormatPlugin {
+impl WasmtimeGalaxyFormatPlugin {
 
     pub fn new(path: &std::path::Path) -> Result<Self> {
         let engine = Engine::default();
@@ -92,69 +139,22 @@ impl GalaxyFormatPlugin {
             .ok_or(anyhow::format_err!("failed to find `result_get_success` function export"))?
             .get1::<u32, u32>()?;
 
-        Ok(GalaxyFormatPlugin {
+        Ok(WasmtimeGalaxyFormatPlugin {
             memory, 
-            present: Box::new(present), 
-            store: Box::new(store), 
-            alloc: Box::new(alloc), 
-            free: Box::new(free),
-            result_get_ptr: Box::new(result_get_ptr),
-            result_get_len: Box::new(result_get_len),
-            result_get_success: Box::new(result_get_success),
+            present_fn: Box::new(present), 
+            store_fn: Box::new(store), 
+            alloc_fn: Box::new(alloc), 
+            free_fn: Box::new(free),
+            result_get_ptr_fn: Box::new(result_get_ptr),
+            result_get_len_fn: Box::new(result_get_len),
+            result_get_success_fn: Box::new(result_get_success),
         })
-    }
-
-    pub fn present(&self, bytes: &[u8]) -> Result<String, String> {
-        self.handle_call(bytes, &self.present).map(|x| String::from_utf8(x).unwrap())
-    }
-
-    pub fn store(&self, s: &str) -> Result<Vec<u8>, String> {
-        self.handle_call(s.as_bytes(), &self.store)
     }
 
     fn try_load_from_cache(hash: &blake3::Hash, engine: &Engine) -> Option<Module> {
         std::fs::read(format!("cache/{}", hash.to_hex()))
             .ok()
             .and_then(|serialized| Module::deserialize(&engine, &serialized).ok())
-    }
-
-    fn handle_call<T: Fn(u32, u32) -> WasmRes<u32>>(&self, bytes: &[u8], f: &T) -> Result<Vec<u8>, String> {
-        // allocate memory and store bytes
-        let len =bytes.len();
-        let ptr = (self.alloc)(len as u32).unwrap();
-        unsafe {
-            self.memory.data_unchecked_mut()[ptr as usize .. ptr as usize + len].clone_from_slice(bytes);
-        }
-
-        // main call
-        let res_ptr = f(ptr as u32, len as u32).unwrap();
-
-        // get result
-        let ptr = (self.result_get_ptr)(res_ptr).unwrap();
-        let len = (self.result_get_len)(res_ptr).unwrap();
-        let success = (self.result_get_success)(res_ptr).unwrap() > 0;
-
-        /*let x: &ReturnData = unsafe {
-            let y: *const u8 = &self.memory.data_unchecked_mut()[res_ptr as usize];
-            let cast_res: *const ReturnData = y.cast();
-            &*cast_res
-        };
-        let success = x.success;*/
-        let v = unsafe {
-            let s_slice = &self.memory.data_unchecked()[ptr as usize..][..len as usize];
-            //let s_slice = &self.memory.data_unchecked()[x.ptr as usize..][..x.len as usize];
-            s_slice.to_vec()
-        };
-
-        // free result memory
-        (self.free)(res_ptr).unwrap();
-
-
-        if success {
-            Ok(v)
-        } else {
-            Err(String::from_utf8(v).unwrap())
-        }
     }
 }
 

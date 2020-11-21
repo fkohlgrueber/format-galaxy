@@ -1,0 +1,13 @@
+[package]
+name = "fg-index"
+version = "0.1.0"
+authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
+edition = "2018"
+
+[lib]
+path = "index.rs"
+
+[dependencies]
+anyhow = "1.0"
+serde = "1.0"
+serde_json = "1.0"

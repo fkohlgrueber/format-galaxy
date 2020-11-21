@@ -1,4 +1,5 @@
-use lib::GalaxyFormatPlugin;
+use lib::WasmtimeGalaxyFormatPlugin;
+use lib::GalaxyFormatPluginV1;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -23,9 +24,9 @@ fn main() -> Result<()> {
     println!("Loading Plugin...");
     let base_path = "cache/plugins/";
     let full_path: PathBuf = [base_path, &format!("{}{}", converter_hash, ".wasm")].iter().collect();
-    let plugin = GalaxyFormatPlugin::new(&full_path)?;
+    let plugin = WasmtimeGalaxyFormatPlugin::new(&full_path)?;
 
-    match plugin.present(&bytes) {
+    match plugin.present(&bytes)? {
         Ok(s) => println!("{}", s),
         Err(e) => eprintln!("{}", e),
     }

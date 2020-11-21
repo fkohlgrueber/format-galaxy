@@ -18,6 +18,8 @@ path = "src/lib.rs"
 
 [dependencies]
 # format-galaxy-core = { path = "../core" }
+fg-index = { path = "../crates/fg-index" }
+fg-plugin = { path = "../crates/fg-plugin" }
 wasmtime = "0.21.0"
 anyhow = "1.0"
 blake3 = "0.3.7"

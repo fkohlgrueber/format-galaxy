@@ -1,0 +1,11 @@
+[package]
+name = "fg-plugin"
+version = "0.1.0"
+authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
+edition = "2018"
+
+[lib]
+path = "plugin.rs"
+
+[dependencies]
+anyhow = "1.0"
