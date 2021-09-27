@@ -1,11 +1,17 @@
 use fg_index::FormatId;
 pub use fg_index::Galaxy;
-use std::io::{Read, Write};
+use std::{io::{Read, Write}, path::Path};
 pub use fg_plugin::GalaxyFormatPluginV1;
 use fg_plugin::GalaxyFormatPluginV1_;
 
 use anyhow::Result;
 use wasmtime::*;
+
+mod select;
+
+pub use select::{
+    ConverterSelection, select_plugin
+};
 
 type WasmRes<T> = std::result::Result<T, wasmtime::Trap>;
 
@@ -71,19 +77,19 @@ impl GalaxyFormatPluginV1_ for WasmtimeGalaxyFormatPlugin {
 
 impl WasmtimeGalaxyFormatPlugin {
 
-    pub fn new(path: &std::path::Path) -> Result<Self> {
+    pub fn new(path: &Path) -> Result<Self> {
         let engine = Engine::default();
         let store = Store::new(&engine);
 
         let bytes = std::fs::read(path)?;
         let hash = blake3::hash(&bytes);
         let module = if let Some(module) = Self::try_load_from_cache(&hash, &engine) {
-            println!("using cached module");
+            // println!("using cached module");
             module
         } else {
-            println!("cache miss. compiling module");
+            // println!("cache miss. compiling module");
             let module = Module::from_file(&engine, path)?;
-            println!("caching module");
+            // println!("caching module");
             let serialized = module.serialize()?;
             std::fs::create_dir_all("cache/compiled/")?;
             std::fs::write(format!("cache/compiled/{}", hash.to_hex()), &serialized)?;
@@ -160,24 +166,50 @@ impl WasmtimeGalaxyFormatPlugin {
 
 static PRELUDE: &[u8; 8] = b"FMTGALv1";
 
-pub fn read_file(path: &std::path::Path) -> Result<(FormatId, Vec<u8>)> {
+pub fn read_format_id(path: &Path) -> Result<FormatId> {
     let mut f = std::fs::File::open(path)?;
-    let mut buf = [0u8; 8];
-    f.read_exact(&mut buf)?;
-    if buf != *PRELUDE {
-        return Err(anyhow::anyhow!("Invalid prelude!"));
-    }
-    f.read_exact(&mut buf)?;
-    let format_id = FormatId(u64::from_le_bytes(buf));
+    parse_format_id(&mut f)
+}
+
+pub fn read_file(path: &Path) -> Result<(FormatId, Vec<u8>)> {
+    let mut f = std::fs::File::open(path)?;
+    let format_id = parse_format_id(&mut f)?;
     let mut bytes = vec!();
     f.read_to_end(&mut bytes)?;
     Ok((format_id, bytes))
 }
 
-pub fn write_file(path: &std::path::Path, format_id: FormatId, bytes: &[u8]) -> Result<()> {
+fn parse_format_id<R: Read>(reader: &mut R) -> Result<FormatId> {
+    let mut buf = [0u8; 8];
+    reader.read_exact(&mut buf)?;
+    if buf != *PRELUDE {
+        return Err(anyhow::anyhow!("Invalid prelude!"));
+    }
+    reader.read_exact(&mut buf)?;
+    let format_id = FormatId(u64::from_le_bytes(buf));
+    Ok(format_id)
+}
+
+pub fn write_file(path: &Path, format_id: FormatId, bytes: &[u8]) -> Result<()> {
     let mut f = std::fs::File::open(path)?;
     f.write(PRELUDE)?;
     f.write(&format_id.0.to_le_bytes())?;
     f.write(bytes)?;
     Ok(())
+}
+
+pub enum FileType {
+    Ext(Option<String>),
+    FormatId(FormatId),
+}
+
+pub fn get_file_type(path: &Path) -> FileType {
+    if let Ok(fid) = read_format_id(path) {
+        FileType::FormatId(fid)
+    } else {
+        let ext = path.extension()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_string());
+        FileType::Ext(ext)
+    }
 }

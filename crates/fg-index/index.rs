@@ -21,6 +21,7 @@ pub struct Galaxy {
 pub struct FileFormat {
     pub name: String,
     pub desc: String, // should be valid markdown
+    pub extensions: Vec<String>, // list of possible file extensions for that file type
     pub converters: HashMap<ConverterId, Converter>,
 }
 
@@ -60,11 +61,13 @@ fn test() {
     formats.insert(FormatId(123), FileFormat {
         name: "Foo".to_string(),
         desc: "...".to_string(),
+        extensions: vec!("json".to_string()),
         converters
     });
     formats.insert(FormatId(55555), FileFormat {
         name: "Bar".to_string(),
         desc: "...".to_string(),
+        extensions: vec!(),
         converters: HashMap::new()
     });
     let g = Galaxy {

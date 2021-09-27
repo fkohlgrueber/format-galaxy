@@ -3,6 +3,7 @@
     "2": {
       "name": "Sequence of bytes",
       "desc": "This is a really simple binary file format. Each byte represents a single unsigned number.",
+      "extensions": [],
       "converters": {
         "001100110011": {
           "name": "Bytes",
@@ -24,6 +25,7 @@
     "100": {
       "name": "Json-like",
       "desc": "A binary format that has a data model similar to Json.",
+      "extensions": [],
       "converters": {
         "001100110011": {
           "name": "Json-like",
@@ -34,7 +36,38 @@
           ]
         }
       }
+    },
+    "200": {
+      "name": "Bson",
+      "desc": "The bson format",
+      "extensions": ["bson"],
+      "converters": {
+        "001100110011": {
+          "name": "Braces",
+          "desc": ".",
+          "versions": [
+          ]
+        },
+        "001100110018": {
+          "name": "Indentation",
+          "desc": ".",
+          "versions": [
+          ]
+        }
+      }
+    },
+    "201": {
+      "name": "Bson2",
+      "desc": "The imaginary bson2 format",
+      "extensions": ["bson"],
+      "converters": {
+        "001100110011": {
+          "name": "Fancy!",
+          "desc": ".",
+          "versions": [
+          ]
+        }
+      }
     }
-
   }
 }
