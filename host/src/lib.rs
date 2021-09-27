@@ -191,7 +191,7 @@ fn parse_format_id<R: Read>(reader: &mut R) -> Result<FormatId> {
 }
 
 pub fn write_file(path: &Path, format_id: FormatId, bytes: &[u8]) -> Result<()> {
-    let mut f = std::fs::File::open(path)?;
+    let mut f = std::fs::File::create(path)?;
     f.write(PRELUDE)?;
     f.write(&format_id.0.to_le_bytes())?;
     f.write(bytes)?;

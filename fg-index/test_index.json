@@ -13,11 +13,11 @@
           ]
         },
         "001100110012": {
-          "name": "Bytes_Test",
+          "name": "Commy-separated",
           "desc": "Comma-separated list of bytes (e.g. `1,2,3`).",
           "versions": [
-            ["0.1.0", "d14ea3e27f3235e7488b0af9875d952e1b7c13c267049c89676fcbd4f13f7356"],
-            ["0.2.0", "d14ea3e27f3235e7488b0af9875d952e1b7c13c267049c89676fcbd4f13f7356"]
+            ["0.1.0", "ea212f75bbcc0d1496139f2a62d6c727ab4650a2d13b08f59ee6278dd81539bb"],
+            ["0.1.1", "a2c6c32553c4710660b796850d0fb2d08460b702529682551b099ab15aeb7b57"]
           ]
         }
       }

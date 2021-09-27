@@ -1,22 +1,89 @@
+use lib::FileType;
 use lib::WasmtimeGalaxyFormatPlugin;
 use lib::GalaxyFormatPluginV1;
 use anyhow::Result;
 use std::path::PathBuf;
 
-fn main() -> Result<()> {
-    println!("loading...");
-    let base_path = "target/wasm32-unknown-unknown/release/";
-    let plugin = "bson";
-    let full_path: PathBuf = [base_path, &format!("{}{}", plugin, ".wasm")].iter().collect();
-    let plugin = WasmtimeGalaxyFormatPlugin::new(&full_path)?;
+fn download_index() -> Result<lib::Galaxy> {
+    let path = std::path::Path::new("fg-index/test_index.json");
+    let galaxy = lib::Galaxy::from_json(path)?;
+    Ok(galaxy)
+}
 
+fn ask_yes_no(prompt: &str) -> bool {
+    loop {
+        println!("{}", prompt);
+
+        let mut buf = String::new();
+        let _ = std::io::stdin().read_line(&mut buf).unwrap();
+        match buf.as_str().trim() {
+            "y" | "yes" => {
+                return true;
+            }
+            "n" | "no" => {
+                return false;
+            }
+            _ => {}
+        }
+    }
+}
+
+fn main() -> Result<()> {
+    
+    let galaxy = download_index()?;
+
+    // parse file name from command line
     let args: Vec<_> = std::env::args().skip(1).collect();
     let file_name = args.get(0).expect("You need to provide a file path");
+    let file_path = PathBuf::from(file_name);
     
     let tmp_filename = format!("{}{}", file_name, ".tmp");
-    if let Ok(bytes) = std::fs::read(file_name) {
+
+    let (file_type, ask_store_in_container_format) = if file_path.is_file() {
+        // check file type and whether it contains format_id
+        (lib::get_file_type(&file_path), false)
+    } else {
+        // if file doesn't exist, offer all file formats and ask whether to store in the container format on save
+        (FileType::Ext(None), true)
+    };
+
+
+    // ask user to select a converter
+    let selection = match lib::select_plugin(&galaxy, &file_type) {
+        Some(x) => x,
+        None => {
+            return Ok(()); // selection was cancelled by user
+        },
+    };
+
+    let format = &galaxy.formats[&selection.format_id];
+    let converter = &format.converters[&selection.converter_id];
+    let converter_version = &converter.versions[selection.version_idx];
+    let converter_hash = converter_version.1.0.as_str();
+
+    // load plugin
+    // println!("Loading Plugin...");
+    let base_path = "cache/plugins/";
+    let full_path: PathBuf = [base_path, &format!("{}{}", converter_hash, ".wasm")].iter().collect();
+    let plugin = WasmtimeGalaxyFormatPlugin::new(&full_path)?;
+
+
+    // convert existing file
+    if file_path.is_file() {
+        // read file content
+        let content_bytes = match file_type {
+            FileType::Ext(_) => {
+                std::fs::read(&file_path)?
+            }
+            FileType::FormatId(_) => {
+                let (format_id, bytes) = lib::read_file(&std::path::PathBuf::from(file_name))?;
+                assert_eq!(format_id, selection.format_id);
+                bytes
+            }
+        };
+
         // present
-        let s = match plugin.present(&bytes)? {
+        let s = match plugin.present(&content_bytes)? {
             Ok(s) => s,
             Err(e) => {
                 eprintln!("{}", e);
@@ -26,31 +93,48 @@ fn main() -> Result<()> {
 
         // write to tmp file
         std::fs::write(&tmp_filename, s)?;
-
     }
-    
-    // call editor, wait 'till it completes
-    println!("open editor");
-    let _ = std::process::Command::new("vim")
-        .arg(&tmp_filename)
-        .status()
-        .expect("Failed to execute command");
 
-    // read tmp file
-    let s = std::fs::read_to_string(&tmp_filename)?;
+    let bytes = loop {
+        // call editor, wait 'till it completes
+        let _ = std::process::Command::new("vim")
+            .arg(&tmp_filename)
+            .status()
+            .expect("Failed to execute command");
 
-    // store
-    let bytes = match plugin.store(&s)? {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("{}", e);
-            return Ok(());
-        },
+        // read tmp file
+        let s = std::fs::read_to_string(&tmp_filename).expect("Couldn't read tmp file");
+
+        // store
+        match plugin.store(&s)? {
+            Ok(b) => {
+                break b;
+            }
+            Err(e) => {
+                eprintln!("Storing the content yielded the following error:\n");
+                eprintln!("{}\n", e);
+                let res = ask_yes_no("Do you want to open the editor again? [y/n]");
+                if !res {
+                    return Ok(());
+                }
+            },
+        }
     };
-    std::fs::write(&file_name, bytes)?;
+
+    let mut store_in_container_format = matches!(file_type, FileType::FormatId(_));
+    // ask for storage container format
+    if ask_store_in_container_format {
+        store_in_container_format = ask_yes_no("Store file using the fmtgal container format? [y/n]");
+    }
+
+    if store_in_container_format {
+        lib::write_file(&file_path, selection.format_id.clone(), &bytes).expect("Couldn't write result file");
+    } else {
+        std::fs::write(&file_name, bytes).expect("Couldn't write result file (non-container)");
+    }
 
     // delete tmp file
-    std::fs::remove_file(tmp_filename)?;
+    std::fs::remove_file(tmp_filename).expect("Couldn't delete tmp file");
     
     Ok(())
 }
