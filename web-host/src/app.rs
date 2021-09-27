@@ -2,6 +2,10 @@ use yew::prelude::*;
 use yew::services::storage::{Area, StorageService};
 use yew::services::fetch::{FetchService, FetchTask, Request, Response};
 
+use yew::services::reader::{File, FileChunk, FileData, ReaderService, ReaderTask};
+use yew::{html, ChangeData, Component, ComponentLink, Html, ShouldRender};
+
+
 use yewtil::future::LinkFuture;
 
 use fg_index::Galaxy;
@@ -63,6 +67,10 @@ pub struct App {
     selection: Selection,
     plugin: Option<WebGalaxyFormatPlugin>,
     status: String,
+    input_text: String,
+    bytes: Option<Vec<u8>>,
+    reader_task: Option<ReaderTask>,
+    reader_service: ReaderService,
 }
 
 pub enum Msg {
@@ -75,6 +83,10 @@ pub enum Msg {
     InputChanged(String),
     Nothing,
     OpenFile,
+    FormatSource,
+    Download,
+    OpenFileObj(File),
+    FileLoaded(FileData)
 }
 
 impl Component for App {
@@ -106,6 +118,10 @@ impl Component for App {
             selection: Selection::None,
             plugin: None,
             status: String::new(),
+            input_text: "type here".to_string(),
+            bytes: None,
+            reader_task: None,
+            reader_service: ReaderService::new(),
         };
 
         app
@@ -114,7 +130,6 @@ impl Component for App {
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
             Msg::FetchReady(s) => {
-                
                 match Galaxy::from_json_str(&s) {
                     Ok(g) => {
                         self.formats = g.formats.iter().map(|(k, v)| (k.clone(), v.name.clone())).collect::<Vec<_>>();
@@ -140,21 +155,61 @@ impl Component for App {
             }
             Msg::InputChanged(s) => {
                 if let Some(plugin) = &self.plugin {
-                    self.status = match plugin.store(&s) {
-                        Err(e) => format!("Fatal error: {}", e),
-                        Ok(Err(e)) => format!("Err: {}", e),
-                        Ok(Ok(_bytes)) => format!("Ok")
+                    match plugin.store(&s) {
+                        Err(e) => {
+                            self.status = format!("Fatal error: {}", e);
+                            self.bytes = None;
+                        },
+                        Ok(Err(e)) => {
+                            self.status = format!("Err: {}", e);
+                            self.bytes = None;
+                        },
+                        Ok(Ok(bytes)) => {
+                            self.status = format!("Ok");
+                            self.bytes = Some(bytes);
+                        },
                     }
                 }
+                self.input_text = s;
             }
             Msg::OpenFile => {
-                /*
-                use wasm_bindgen_futures::spawn_local;
-                spawn_local(async {
-                    let plugin = WebGalaxyFormatPlugin::from_slice(WASM).await.unwrap();
-                    let res = plugin.present(&[42, 0, 100]);
-                    yew::services::ConsoleService::log(&format!("Result: {:?}", res));
-                });*/
+                
+            }
+            Msg::OpenFileObj(file) => {
+                // TODO!
+                yew::services::ConsoleService::log(&format!("Filename: {}", &file.name()));
+
+                let callback = self.link.callback(Msg::FileLoaded);
+                let task = self.reader_service.read_file(file, callback).unwrap();
+
+                self.reader_task = Some(task);
+
+            }
+            Msg::FileLoaded(data) => {
+                let bytes = data.content;
+                // TODO: check that file conforms to fmtgal format, select a converter and present the content
+            }
+            Msg::FormatSource => {
+                if let Some(bytes) = &self.bytes {
+                    if let Some(plugin) = &self.plugin {
+                        match plugin.present(bytes) {
+                            Err(e) => {
+                                self.status = format!("Fatal error: {}", e);
+                            },
+                            Ok(Err(e)) => {
+                                self.status = format!("Err: {}", e);
+                            },
+                            Ok(Ok(s)) => {
+                                //self.status = format!("Ok");
+                                self.input_text = s;
+                            },
+                        }
+                    }
+                    
+                }
+            }
+            Msg::Download => {
+                // TODO: wrap self.bytes in fmtgal format and trigger download
             }
             Msg::FormatChange(cd) => {
                 if let ChangeData::Select(elmt) = cd {
@@ -252,11 +307,22 @@ impl Component for App {
                 </select>
                 <br />
                 <button onclick=self.link.callback(|_| Msg::OpenFile)>{"Open File"}</button>
-                <button /*onclick=self.link.callback(|_| Msg::LoadGalaxy)*/>{"Format source"}</button>
-                <button /*onclick=self.link.callback(|_| Msg::LoadGalaxy)*/>{"Download"}</button>
+                <button disabled=self.bytes.is_none() onclick=self.link.callback(|_| Msg::FormatSource)>{"Format source"}</button>
+                <button disabled=self.bytes.is_none() onclick=self.link.callback(|_| Msg::Download)>{"Download"}</button>
+                <input type="file" multiple=false onchange=self.link.callback(move |value| {
+                        let file = if let ChangeData::Files(files) = value {
+                            files.get(0)
+                        } else { None };
+                        if let Some(f) = file {
+                            Msg::OpenFileObj(f)
+                        } else {
+                            Msg::Nothing
+                        }
+                    })
+                />
                 <input disabled=true value=self.status />
                 <br />
-                <textarea oninput=self.link.callback(|s: InputData| Msg::InputChanged(s.value))>{"Some text"}</textarea>
+                <textarea disabled=self.plugin.is_none() oninput=self.link.callback(|s: InputData| Msg::InputChanged(s.value)) value={&self.input_text}>{&self.input_text}</textarea>
             </div>
             </>
         }

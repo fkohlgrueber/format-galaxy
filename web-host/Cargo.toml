@@ -4,9 +4,6 @@ version = "0.1.0"
 authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
 edition = "2018"
 
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
 wasm-bindgen = "^0.2"
 yew = "0.17"
