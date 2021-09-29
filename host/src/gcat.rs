@@ -27,7 +27,12 @@ fn main() -> Result<()> {
     }
 
     // check file type and whether it contains format_id
-    let file_type = lib::get_file_type(&file_path);
+    let file_type = lib::get_file_type(&file_path)?;
+
+    // print warning when using file that doesn't use the fmtgal container format
+    if let FileType::Ext(_) = &file_type {
+        eprintln!("WARNING: The file doesn't use the format galaxy container format. The exact format of the file is not known and needs to be selected manually.")
+    }
 
     // ask user to select a converter
     let selection = match lib::select_plugin(&galaxy, &file_type) {

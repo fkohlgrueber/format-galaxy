@@ -203,13 +203,21 @@ pub enum FileType {
     FormatId(FormatId),
 }
 
-pub fn get_file_type(path: &Path) -> FileType {
-    if let Ok(fid) = read_format_id(path) {
-        FileType::FormatId(fid)
-    } else {
-        let ext = path.extension()
-            .and_then(|s| s.to_str())
-            .map(|s| s.to_string());
-        FileType::Ext(ext)
+pub fn get_file_type(path: &Path) -> Result<FileType> {
+    let ext = file_extension(path);
+    match ext {
+        Some("fg") => {
+            read_format_id(path).map(FileType::FormatId)
+        }
+        ext => Ok(FileType::Ext(ext.map(String::from)))
     }
+}
+
+pub fn is_fg_file(path: &Path) -> bool {
+    matches!(file_extension(path), Some("fg"))
+}
+
+pub fn file_extension(path: &Path) -> Option<&str> {
+    path.extension()
+        .and_then(|s| s.to_str())
 }

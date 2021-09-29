@@ -2,6 +2,8 @@ use lib::FileType;
 use lib::WasmtimeGalaxyFormatPlugin;
 use lib::GalaxyFormatPluginV1;
 use anyhow::Result;
+use lib::file_extension;
+use lib::is_fg_file;
 use std::path::PathBuf;
 
 fn download_index() -> Result<lib::Galaxy> {
@@ -39,12 +41,22 @@ fn main() -> Result<()> {
     
     let tmp_filename = format!("{}{}", file_name, ".tmp");
 
-    let (file_type, ask_store_in_container_format) = if file_path.is_file() {
+    let (file_type, store_in_container_format) = if file_path.is_file() {
         // check file type and whether it contains format_id
-        (lib::get_file_type(&file_path), false)
+        let file_type = lib::get_file_type(&file_path)?;
+        // print warning when using file that doesn't use the fmtgal container format
+        if let FileType::Ext(_) = &file_type {
+            eprintln!("WARNING: The file doesn't use the format galaxy container format. The exact format of the file is not known and needs to be selected manually.")
+        }
+        let store_in_container_format = matches!(&file_type, FileType::FormatId(_));
+        (file_type, store_in_container_format)
     } else {
         // if file doesn't exist, offer all file formats and ask whether to store in the container format on save
-        (FileType::Ext(None), true)
+        if is_fg_file(&file_path) {
+            (FileType::Ext(None), true)
+        } else {
+            (FileType::Ext(file_extension(&file_path).map(String::from)), false)
+        }
     };
 
 
@@ -121,11 +133,6 @@ fn main() -> Result<()> {
         }
     };
 
-    let mut store_in_container_format = matches!(file_type, FileType::FormatId(_));
-    // ask for storage container format
-    if ask_store_in_container_format {
-        store_in_container_format = ask_yes_no("Store file using the fmtgal container format? [y/n]");
-    }
 
     if store_in_container_format {
         lib::write_file(&file_path, selection.format_id.clone(), &bytes).expect("Couldn't write result file");

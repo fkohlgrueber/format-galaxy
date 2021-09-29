@@ -43,9 +43,10 @@
       "extensions": ["bson"],
       "converters": {
         "001100110011": {
-          "name": "Braces",
+          "name": "Looking like json",
           "desc": ".",
           "versions": [
+            ["0.1.0", "c01667cb43f981eec40ba0801efc72f5f3ba37810179ee08df5f0a1e831312d7"]
           ]
         },
         "001100110018": {
