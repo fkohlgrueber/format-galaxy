@@ -1,5 +1,5 @@
 
-use format_galaxy_core::gen_plugin;
+use format_galaxy_core::{GalaxyFormat, gen_plugin};
 use json_like_value::Value;
 
 
@@ -23,6 +23,23 @@ impl format_galaxy_core::GalaxyFormat for Impl {
 
 gen_plugin!{Impl}
 
+#[test]
+fn test_diagnostics() {
+    let s = r#"
+{ tr"#;
+
+    let res = Impl::store(s);
+    match res {
+        Ok(_bytes) => {
+            panic!("Expected this to fail")
+        }
+        Err(s) => {
+            println!("{}", s);
+        }
+    }
+
+    
+}
 
 #[test]
 fn test() {

@@ -1,3 +1,4 @@
+use codespan_reporting::{diagnostic::{self, Diagnostic, Label}, files::SimpleFile, term::{self, termcolor::{ColorChoice, StandardStream}}};
 use indexmap::IndexMap;
 use std::{io::{Error, ErrorKind, Read}, iter::Peekable};
 
@@ -126,23 +127,48 @@ enum Token {
 }
 
 struct Tokenizer<'a> {
-    iter: std::iter::Peekable<std::str::Chars<'a>>,
-    tokens: Vec<Token>
+    iter: std::iter::Peekable<std::iter::Enumerate<std::str::Chars<'a>>>,
+    tokens: Vec<Token>,
+    input: &'a str,
 }
 
 impl<'a> Tokenizer<'a> {
     fn new(s: &'a str) -> Self {
         Tokenizer {
-            iter: s.chars().peekable(),
-            tokens: vec!()
+            iter: s.chars().enumerate().peekable(),
+            tokens: vec!(),
+            input: s,
         }
+    }
+
+    fn format_diagnostic(&self, diag: Diagnostic<()>) -> String {
+        let file = SimpleFile::new("input", self.input);
+        let mut writer = termcolor::Buffer::no_color();
+        let config = codespan_reporting::term::Config::default();
+        term::emit(&mut writer, &config, &file, &diag).unwrap();
+        String::from_utf8(writer.into_inner()).unwrap()
     }
 
     fn consume(&mut self, c: char) -> Result<(), String> {
         match self.iter.next() {
-            None => Err("Unexpected end of file".to_string()),
-            Some(x) if x == c => Ok(()),
-            Some(other) => Err(format!("Unexpected character '{}'.", other))
+            None => {
+                let num_chars = self.input.chars().count();
+                let diag = Diagnostic::error()
+                    .with_message("Unexpected end of input")
+                    .with_labels(vec!(
+                        Label::primary((), num_chars..num_chars+1).with_message(format!("Expected character `{}`", c)),
+                    ));
+                Err(self.format_diagnostic(diag))
+            },
+            Some((_idx, x)) if x == c => Ok(()),
+            Some((idx, other)) => {
+                let diag = Diagnostic::error()
+                    .with_message("Unexpected input")
+                    .with_labels(vec!(
+                        Label::primary((), idx..idx+1).with_message(format!("Expected character `{}`, found `{}`", c, other)),
+                    ));
+                Err(self.format_diagnostic(diag))
+            }
         }
     }
 
@@ -160,9 +186,17 @@ impl<'a> Tokenizer<'a> {
         loop {
             // handle string escapes
             match (self.iter.next(), escape) {
-                (None, _) => { return Err("Unexpected EOF".to_string()) }
-                (Some('\\'), false) => { escape = true; }
-                (Some(c), true) => {
+                (None, _) => { 
+                    let num_chars = self.input.chars().count();
+                    let diag = Diagnostic::error()
+                        .with_message("Unexpected end of input")
+                        .with_labels(vec!(
+                            Label::primary((), num_chars..num_chars+1).with_message("Expected more characters "),
+                        ));
+                    return Err(self.format_diagnostic(diag));
+                }
+                (Some((_idx, '\\')), false) => { escape = true; }
+                (Some((_idx, c)), true) => {
                     escape = false;
                     let c = match c {
                         't' => '\t',
@@ -172,10 +206,10 @@ impl<'a> Tokenizer<'a> {
                     };
                     s.push(c);
                 }
-                (Some('"'), false) => {
+                (Some((_idx, '"')), false) => {
                     break;
                 }
-                (Some(c), false) => {
+                (Some((_idx, c)), false) => {
                     s.push(c);
                 }
             }
@@ -187,66 +221,88 @@ impl<'a> Tokenizer<'a> {
         loop {
             match self.iter.peek() {
                 None => { break },
-                Some(c) if c.is_ascii_whitespace() => {  // skip whitespace
+                Some((_idx, c)) if c.is_ascii_whitespace() => {  // skip whitespace
                     self.iter.next();
                 },
-                Some('[') => {
+                Some((_idx, '[')) => {
                     self.tokens.push(Token::LBracket);
                     self.iter.next();
                 }
-                Some(']') => {
+                Some((_idx, ']')) => {
                     self.tokens.push(Token::RBracket);
                     self.iter.next();
                 }
-                Some('{') => {
+                Some((_idx, '{')) => {
                     self.tokens.push(Token::LBrace);
                     self.iter.next();
                 }
-                Some('}') => {
+                Some((_idx, '}')) => {
                     self.tokens.push(Token::RBrace);
                     self.iter.next();
                 }
-                Some(':') => {
+                Some((_idx, ':')) => {
                     self.tokens.push(Token::Colon);
                     self.iter.next();
                 }
-                Some(',') => {
+                Some((_idx, ',')) => {
                     self.tokens.push(Token::Comma);
                     self.iter.next();
                 }
-                Some('t') => {
+                Some((_idx, 't')) => {
                     self.consume_str("true")?;
                     self.tokens.push(Token::Bool(true));
                 }
-                Some('f') => {
+                Some((_idx, 'f')) => {
                     self.consume_str("false")?;
                     self.tokens.push(Token::Bool(false));
                 }
-                Some('n') => {
+                Some((_idx, 'n')) => {
                     self.consume_str("null")?;
                     self.tokens.push(Token::Null);
                 }
-                Some('"') => {
+                Some((_idx, '"')) => {
                     let s = self.tok_string()?;
                     self.tokens.push(Token::Str(s));
                 }
-                Some(c) if c.is_numeric() => {
+                Some((start_idx, c)) if c.is_numeric() => {
+                    let start_idx = *start_idx;
                     let mut s = String::new();
+                    let mut end_idx = start_idx;
                     loop {
                         match self.iter.peek().cloned() {
-                            Some(c) if c.is_numeric() => {
+                            Some((idx, c)) if c.is_numeric() => {
                                 self.iter.next();
                                 s.push(c);
+                                end_idx = idx;
                             }
                             _ => {
                                 break;
                             }
                         }
                     }
-                    self.tokens.push(Token::Num(s.parse().map_err(|_| "Number out of range".to_string())?))
+                    
+                    let n = match s.parse() {
+                        Ok(n) => n,
+                        Err(_) => {
+                            // number literal is too large
+                            let diag = Diagnostic::error()
+                                .with_message("Integer literal too large")
+                                .with_labels(vec!(
+                                    Label::primary((), start_idx..end_idx+1).with_message("Provided integer literal is too large"),
+                                ));
+                            return Err(self.format_diagnostic(diag));
+                        }
+                    };
+
+                    self.tokens.push(Token::Num(n));
                 }
-                Some(c) => {
-                    return Err(format!("Unexpected input `{}`", c))
+                Some((idx, c)) => {
+                    let diag = Diagnostic::error()
+                        .with_message("Unexpected input")
+                        .with_labels(vec!(
+                            Label::primary((), *idx..*idx+1).with_message(format!("Unexpected character `{}`", c)),
+                        ));
+                    return Err(self.format_diagnostic(diag));
                 }
             }
         }
@@ -682,6 +738,27 @@ fn parse_str_tree_inner(line_value: Value, children: Vec<StrTree>) -> Result<Val
     Ok(value)
 }
 
+
+#[test]
+fn codespan_test() {
+    let s = "{\n  \"a\": 12345,\n  \"b\": \"hello\"\n}";
+    
+    use codespan_reporting::files::SimpleFile;
+    let file = SimpleFile::new("test", s);
+
+    let diagnostic = Diagnostic::error()
+        .with_message("I don't like this number")
+        .with_labels(vec!(
+            Label::primary((), 9..14).with_message("Expected another number")
+        ));
+
+    let writer = StandardStream::stderr(ColorChoice::Never);
+    let config = codespan_reporting::term::Config::default();
+
+    term::emit(&mut writer.lock(), &config, &file, &diagnostic).unwrap();
+
+    assert!(false);
+}
 
 #[cfg(test)]
 mod test {

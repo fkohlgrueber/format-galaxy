@@ -10,3 +10,5 @@ path = "value.rs"
 [dependencies]
 indexmap = "1.6.0"
 str-tree = { path = "../../../../str-tree" }
+codespan-reporting = "0.11.1"
+termcolor = "1"

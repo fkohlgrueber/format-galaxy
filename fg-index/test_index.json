@@ -24,7 +24,7 @@
     },
     "100": {
       "name": "Json-like",
-      "desc": "A binary format that has a data model similar to Json.",
+      "desc": "A binary format that has a data model similar to Json.\n\nChangelog:\n0.1.3: Diagnostics for tokenizer",
       "extensions": [],
       "converters": {
         "001100110011": {
@@ -33,7 +33,8 @@
           "versions": [
             ["0.1.0", "d68617f36e439c2fc7b73ec9e4cd728c0bdbad1aaa8f2ac2e425f26845ef997a"],
             ["0.1.1", "697b91d6b4abc7398688698929a29cd593c046338fd9338da9dd811ae72112c5"],
-            ["0.1.2", "e84472fbd0c57b23f42ab30fafd7501745baa3b0f7ec8adcfb01a2a31c5dfc5b"]
+            ["0.1.2", "e84472fbd0c57b23f42ab30fafd7501745baa3b0f7ec8adcfb01a2a31c5dfc5b"],
+            ["0.1.3", "1d823116e79d5736bfd3e12ddb274fe34126c6babe88322523c8d69db269e90c"]
           ]
         },
         "001100110016": {
