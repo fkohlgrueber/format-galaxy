@@ -1,5 +1,7 @@
 use indexmap::IndexMap;
-use std::io::{Error, ErrorKind, Read};
+use std::{io::{Error, ErrorKind, Read}, iter::Peekable};
+
+use str_tree::StrTree;
 
 #[derive(Default)]
 struct ValueWriter {
@@ -151,6 +153,36 @@ impl<'a> Tokenizer<'a> {
         Ok(())
     }
 
+    fn tok_string(&mut self) -> Result<String, String> {
+        self.consume('"')?;
+        let mut s = String::new();
+        let mut escape = false;
+        loop {
+            // handle string escapes
+            match (self.iter.next(), escape) {
+                (None, _) => { return Err("Unexpected EOF".to_string()) }
+                (Some('\\'), false) => { escape = true; }
+                (Some(c), true) => {
+                    escape = false;
+                    let c = match c {
+                        't' => '\t',
+                        'n' => '\n',
+                        'r' => '\r',
+                        c => c,
+                    };
+                    s.push(c);
+                }
+                (Some('"'), false) => {
+                    break;
+                }
+                (Some(c), false) => {
+                    s.push(c);
+                }
+            }
+        }
+        Ok(s)
+    }
+
     fn tokenize(mut self) -> Result<Vec<Token>, String> {
         loop {
             match self.iter.peek() {
@@ -195,32 +227,7 @@ impl<'a> Tokenizer<'a> {
                     self.tokens.push(Token::Null);
                 }
                 Some('"') => {
-                    self.consume('"')?;
-                    let mut s = String::new();
-                    let mut escape = false;
-                    loop {
-                        // handle string escapes
-                        match (self.iter.next(), escape) {
-                            (None, _) => { return Err("Unexpected EOF".to_string()) }
-                            (Some('\\'), false) => { escape = true; }
-                            (Some(c), true) => {
-                                escape = false;
-                                let c = match c {
-                                    't' => '\t',
-                                    'n' => '\n',
-                                    'r' => '\r',
-                                    c => c,
-                                };
-                                s.push(c);
-                            }
-                            (Some('"'), false) => {
-                                break;
-                            }
-                            (Some(c), false) => {
-                                s.push(c);
-                            }
-                        }
-                    }
+                    let s = self.tok_string()?;
                     self.tokens.push(Token::Str(s));
                 }
                 Some(c) if c.is_numeric() => {
@@ -541,5 +548,328 @@ impl Value {
                 //p.print_newline();
             }
         }
+    }
+
+    pub fn parse_indented(s: &str) -> Result<Self, String> {
+        let st = parse_single_tree(s)?;
+        parse_str_tree(st)
+    }
+}
+
+fn lines_with_indent(s: &str) -> impl Iterator<Item = (usize, &str)> {
+    s.lines().map(|line| {
+        let content = line.trim_start_matches(" ");
+        let num_preceeding_spaces = line.len() - content.len();
+        (num_preceeding_spaces, content)
+    })
+}
+
+fn parse_single_tree(s: &str) -> Result<StrTree, String> {
+    let mut iter = lines_with_indent(s).into_iter().peekable();
+    let st = parse_one_root(&mut iter)?;
+    if iter.next().is_some() {
+        Err("Unexpected additional input".to_string())
+    } else {
+        Ok(st)
+    }
+}
+
+#[allow(unused)]
+fn parse_multiple_trees(s: &str) -> Result<Vec<StrTree>, String> {
+    let mut iter = lines_with_indent(s).into_iter().peekable();
+    let mut trees = vec!();
+    while iter.peek().is_some() {
+        let st = parse_one_root(&mut iter)?;
+        trees.push(st);
+    }
+    Ok(trees)
+}
+
+fn parse_one_root<'a, I: Iterator<Item = (usize, &'a str)>>(line_iter: &mut Peekable<I>) -> Result<StrTree<'a>, String> {
+    let (indent, content) = line_iter.next().ok_or("Unexpected EOF".to_string())?;
+    let mut stack = vec!((indent, StrTree::new(content, vec!())));
+
+    while let Some((indent, content)) = line_iter.peek() {
+        
+        // check that dedents only return to indent level that are on the stack
+        let orig_top_indent = stack.last().unwrap().0;
+        if *indent < orig_top_indent {
+            if !stack.iter().any(|x| x.0 == *indent) {
+                return Err("Dedent to a level that was skipped previously.".to_string());
+            }
+        }
+
+        while *indent <= stack.last().unwrap().0 {
+            // pop from the stack
+            let tmp = stack.pop().unwrap();
+            match stack.last_mut() {
+                Some(elmt) => elmt.1.children.push(tmp.1),
+                None => {
+                    // we've reached a line that has the same or less indentation than the root node.
+                    // return without consuming the new line
+                    return Ok(tmp.1);
+                }
+            }
+        }
+
+        stack.push((*indent, StrTree::new(content, vec!())));
+        line_iter.next();
+    }
+
+    // collapse stack
+    while stack.len() > 1 {
+        let tmp = stack.pop().unwrap().1;
+        stack.last_mut().unwrap().1.children.push(tmp);
+    }
+
+    Ok(stack.pop().unwrap().1)
+}
+
+fn parse_line(s: &str) -> Result<Value, String> {
+    let tokens = Tokenizer::new(s).tokenize()?;
+    parse_line_inner(&tokens)
+}
+
+fn parse_line_inner(tokens: &[Token]) -> Result<Value, String> {
+    let value = match tokens {
+        [Token::LBrace, Token::RBrace] => Value::Object(IndexMap::new()),
+        [Token::LBracket, Token::RBracket] => Value::Array(vec!()),
+        [Token::Bool(b)] => Value::Bool(*b),
+        [Token::Null] => Value::Null,
+        [Token::Str(s)] => Value::String(s.clone()),
+        [Token::Num(n)] => Value::Number(*n),
+        _ => { return Err("Unexpected line".to_string())}
+    };
+    
+    Ok(value)
+}
+
+fn parse_str_tree(st: StrTree) -> Result<Value, String> {
+    parse_str_tree_inner(parse_line(st.elmt)?, st.children)
+    
+}
+
+fn parse_str_tree_inner(line_value: Value, children: Vec<StrTree>) -> Result<Value, String> {
+    let value = match line_value {
+        Value::Array(_) => {
+            let res: Result<Vec<_>, _> = children.into_iter().map(|s| parse_str_tree(s)).collect();
+            Value::Array(res?)
+        }
+        Value::Object(_) => {
+            let mut map = IndexMap::new();
+            for child in children {
+                let tokens = Tokenizer::new(child.elmt).tokenize()?;
+                let key = match &tokens[..2] {
+                    [Token::Str(s), Token::Colon] => {
+                        s.clone()
+                    }
+                    _ => { return Err("Failed to parse line as an object attribute".to_string()); }
+                };
+                let line_value = parse_line_inner(&tokens[2..])?;
+                let value = parse_str_tree_inner(line_value, child.children)?;
+                map.insert(key, value);
+            }
+            Value::Object(map)
+        }
+        val => {
+            if !children.is_empty() {
+                return Err("This node may not have children".to_string());
+            }
+            val
+        }
+    };
+
+    Ok(value)
+}
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use str_tree::str_tree;
+
+    #[test]
+    fn test_str_tree() {
+        let s = "a\n  b\n  c\n    d\n      e\n  f";
+        let exp = StrTree::new("a", vec!(
+            StrTree::new("b", vec!()),
+            StrTree::new("c", vec!(
+                StrTree::new("d", vec!(
+                    StrTree::new("e", vec!()),
+                )),
+            )),
+            StrTree::new("f", vec!()),
+        ));
+        let res = parse_single_tree(s).unwrap();
+        assert_eq!(exp, res)
+    }
+
+    #[test]
+    fn test_parse_one_root_empty() {
+        let lines = vec!();
+
+        let mut iter = lines.into_iter().peekable();
+        assert!(parse_one_root(&mut iter).is_err());
+    }
+
+    #[test]
+    fn test_parse_one_root_regular() {
+        let lines = vec!(
+            (0, "a"),
+            (1, "b"),
+            (1, "c"),
+            (2, "d"),
+            (3, "e"),
+            (1, "f"),
+        );
+        let exp = str_tree!(
+            "a" => {
+              "b",
+              "c" => {
+                "d" => {
+                    "e",
+                },
+              },
+              "f",
+            }
+        );
+
+        let mut iter = lines.into_iter().peekable();
+        assert_eq!(parse_one_root(&mut iter), Ok(exp));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_parse_two_roots_regular() {
+        let lines = vec!(
+            (0, "a"),
+            (1, "b"),
+            (2, "c"),
+            (0, "d"),
+            (1, "e"),
+            (2, "f"),
+        );
+        let exp1 = str_tree!(
+            "a" => {
+              "b" => {
+                  "c"
+              },
+            }
+        );
+        let exp2 = str_tree!(
+            "d" => {
+              "e" => {
+                  "f"
+              },
+            }
+        );
+
+        let mut iter = lines.into_iter().peekable();
+        assert_eq!(parse_one_root(&mut iter), Ok(exp1));
+        assert_eq!(parse_one_root(&mut iter), Ok(exp2));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_non_zero_start_indent() {
+        let lines = vec!(
+            (1, "a"),
+            (2, "b"),
+            (2, "c"),
+        );
+        let exp = str_tree!(
+            "a" => {
+              "b",
+              "c",
+            }
+        );
+
+        let mut iter = lines.into_iter().peekable();
+        assert_eq!(parse_one_root(&mut iter), Ok(exp));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_skipping_indent_levels() {
+        let lines = vec!(
+            (1, "a"),
+            (4, "b"),
+            (9, "c"),
+            (9, "d"),
+            (4, "e"),
+        );
+        let exp = str_tree!(
+            "a" => {
+              "b" => {
+                  "c",
+                  "d"
+              },
+              "e",
+            }
+        );
+
+        let mut iter = lines.into_iter().peekable();
+        assert_eq!(parse_one_root(&mut iter), Ok(exp));
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_dedent_to_unknown_level() {
+        let lines = vec!(
+            (1, "a"),
+            (4, "b"),
+            (3, "c"),
+        );
+
+        let mut iter = lines.into_iter().peekable();
+        assert!(dbg!(parse_one_root(&mut iter)).is_err());
+    }
+
+    #[test]
+    fn test_dedent_to_unknown_level_below_initial() {
+        // don't know whether this case is relevant at all, but let's just keep track of the current behavior using the test.
+        let lines = vec!(
+            (1, "a"),
+            (4, "b"),
+            (0, "c"),
+        );
+        
+        let mut iter = lines.into_iter().peekable();
+        assert!(dbg!(parse_one_root(&mut iter)).is_err());
+    }
+
+    #[test]
+    fn test_parse_single_tree() {
+        let res = parse_single_tree("abc\n def");
+        let exp = str_tree!(
+            "abc" => {
+              "def"
+            }
+        );
+        assert_eq!(res, Ok(exp));
+    }
+
+    #[test]
+    fn test_parse_single_tree_additional_lines() {
+        let res = parse_single_tree("abc\n def\nadditional");
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_parse_multiple_trees() {
+        let res = parse_multiple_trees("abc\n def\nxyz\n    foo");
+        let exp = vec!(
+            str_tree!(
+                "abc" => {
+                  "def"
+                }
+            ),
+            str_tree!(
+                "xyz" => {
+                    "foo"
+                }
+            ),
+        );
+        assert_eq!(res, Ok(exp));
     }
 }

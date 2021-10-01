@@ -14,7 +14,7 @@ impl format_galaxy_core::GalaxyFormat for Impl {
     }
 
     fn store(s: &str) -> Result<Vec<u8>, String> {
-        let val = Value::parse(s)?;
+        let val = Value::parse_indented(s)?;
         Ok(val.serialize())
     }
 }
@@ -64,19 +64,19 @@ fn test() {
         "[]\n  \"Nested!\"",
         "[]\n  1000",
         "{}\n  \"Foo\": null\n  \"❤Bar❤\": 5000\n  \"DeepNested\": {}\n    \"bool\": false\n  \"DeepNested2\": []\n    1\n    2\n    3",
+        "[]\n  null\n  true\n  false\n  {}\n    \"a\": 1\n    \"b\": 2",
     );
 
     // pretty_print
     for (val, exp) in values.iter().zip(exp_strings.into_iter()) {
         let s = val.pretty_print_2();
         assert_eq!(&s, exp);
-        println!("{}", s);
     }
 
     // parse
     for val in values {
         let s = val.pretty_print_2();
-        let val2 = Value::parse(&s).expect("parsing led to error!");
+        let val2 = Value::parse_indented(&s).expect("parsing led to error!");
         assert_eq!(val, val2);
     }
 }

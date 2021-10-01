@@ -32,7 +32,15 @@
           "desc": "A syntax similar to json",
           "versions": [
             ["0.1.0", "d68617f36e439c2fc7b73ec9e4cd728c0bdbad1aaa8f2ac2e425f26845ef997a"],
-            ["0.1.1", "697b91d6b4abc7398688698929a29cd593c046338fd9338da9dd811ae72112c5"]
+            ["0.1.1", "697b91d6b4abc7398688698929a29cd593c046338fd9338da9dd811ae72112c5"],
+            ["0.1.2", "e84472fbd0c57b23f42ab30fafd7501745baa3b0f7ec8adcfb01a2a31c5dfc5b"]
+          ]
+        },
+        "001100110016": {
+          "name": "Indentation-based",
+          "desc": "A syntax using indentation to represent nesting",
+          "versions": [
+            ["0.1.0", "3c9a44c73f72e464427b75e9917b8c9901bbc1c15bab8e37308648cb308317dc"]
           ]
         }
       }

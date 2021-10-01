@@ -5,12 +5,12 @@ authors = ["Felix Kohlgrüber <felix.kohlgrueber@gmail.com>"]
 edition = "2018"
 
 [[bin]]
-name = "gcat"
-path = "src/gcat.rs"
+name = "fg-cat"
+path = "src/fgcat.rs"
 
 [[bin]]
-name = "edit"
-path = "src/edit.rs"
+name = "fg-edit"
+path = "src/fgedit.rs"
 
 [lib]
 name = "lib"

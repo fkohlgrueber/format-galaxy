@@ -9,3 +9,4 @@ path = "value.rs"
 
 [dependencies]
 indexmap = "1.6.0"
+str-tree = { path = "../../../../str-tree" }

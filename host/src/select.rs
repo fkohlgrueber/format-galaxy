@@ -47,7 +47,7 @@ fn ask(formats: &[(FormatId, FileFormat)], allow_format_selection: bool) -> Opti
                 // ask for converter
                 let mut converters: Vec<_> = format.converters.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
                 converters.sort_by_key(|c| c.1.name.to_string());
-                match ask_converter(converters.as_slice(), allow_format_selection) {
+                match ask_converter(converters.as_slice(), allow_format_selection, &format.name) {
                     Answer::Selected(converter) => {
                         converter_state = Some(converter.clone());
                     }
@@ -109,8 +109,9 @@ fn ask_format(formats: &[(FormatId, FileFormat)]) -> Answer<&(FormatId, FileForm
     unreachable!("This is an internal error");
 }
 
-fn ask_converter(converters: &[(ConverterId, Converter)], offer_back: bool) -> Answer<&(ConverterId, Converter)> {
+fn ask_converter<'a>(converters: &'a[(ConverterId, Converter)], offer_back: bool, format_name: &str) -> Answer<&'a (ConverterId, Converter)> {
     let mut items = vec!(
+        label(&format!("File format: {}", format_name)),
         label("Please select a converter:"),
     );
     let num_labels = items.len();
