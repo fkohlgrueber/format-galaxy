@@ -150,8 +150,15 @@ impl Component for App {
                 })
             }
             Msg::PluginReady(plugin) => {
+                if let Some(bytes) = &self.bytes {
+                    if let Ok(Ok(s)) = plugin.present(&bytes) {
+                        self.input_text = s;
+                    }
+                }
                 self.plugin = Some(plugin);
                 self.status = "Plugin loaded, ready to go!".to_string();
+
+                
             }
             Msg::InputChanged(s) => {
                 if let Some(plugin) = &self.plugin {
@@ -320,9 +327,9 @@ impl Component for App {
                         }
                     })
                 />
-                <input disabled=true value=self.status />
                 <br />
                 <textarea disabled=self.plugin.is_none() oninput=self.link.callback(|s: InputData| Msg::InputChanged(s.value)) value={&self.input_text}>{&self.input_text}</textarea>
+                <textarea disabled=true value={&self.status}>{&self.status}</textarea>
             </div>
             </>
         }

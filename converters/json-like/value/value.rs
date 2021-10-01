@@ -549,7 +549,7 @@ impl Value {
                                         elmts.insert(key, Self::parse_(iter)?);
                                     }
                                 }
-                                Some(Token::RBracket) => {
+                                Some(Token::RBrace) => {
                                     return Ok(Value::Object(elmts));
                                 }
                                 Some(_) => { return Err("Unexpected token.".to_string()); }
