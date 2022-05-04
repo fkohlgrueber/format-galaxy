@@ -1,25 +1,25 @@
 use anyhow::Result;
 
 pub trait GalaxyFormatPluginV1_ {
-    fn alloc(&self, size: u32) -> Result<u32>;
-    fn free(&self, ptr: u32) -> Result<()>;
-    fn present(&self, ptr: u32, size: u32) -> Result<u32>;
-    fn store(&self, ptr: u32, size: u32) -> Result<u32>;
-    fn result_get_ptr(&self, res_ptr: u32) -> Result<u32>;
-    fn result_get_len(&self, res_ptr: u32) -> Result<u32>;
-    fn result_get_success(&self, res_ptr: u32) -> Result<bool>;
+    fn alloc(&mut self, size: u32) -> Result<u32>;
+    fn free(&mut self, ptr: u32) -> Result<()>;
+    fn present(&mut self, ptr: u32, size: u32) -> Result<u32>;
+    fn store(&mut self, ptr: u32, size: u32) -> Result<u32>;
+    fn result_get_ptr(&mut self, res_ptr: u32) -> Result<u32>;
+    fn result_get_len(&mut self, res_ptr: u32) -> Result<u32>;
+    fn result_get_success(&mut self, res_ptr: u32) -> Result<bool>;
     
-    fn memory_write(&self, ptr: u32, bytes: &[u8]) -> Result<()>;
-    fn memory_read(&self, ptr: u32, len: u32) -> Result<Vec<u8>>;
+    fn memory_write(&mut self, ptr: u32, bytes: &[u8]) -> Result<()>;
+    fn memory_read(&mut self, ptr: u32, len: u32) -> Result<Vec<u8>>;
 
-    fn handle_call<T: Fn(u32, u32) -> Result<u32>>(&self, bytes: &[u8], f: &T) -> anyhow::Result<Result<Vec<u8>, String>> {
+    fn handle_call<T: FnMut(&mut Self, u32, u32) -> Result<u32>>(&mut self, bytes: &[u8], f: &mut T) -> anyhow::Result<Result<Vec<u8>, String>> {
         // allocate memory and store bytes
         let len =bytes.len();
         let ptr = self.alloc(len as u32)?;
         self.memory_write(ptr, bytes)?;
 
         // main call
-        let res_ptr = f(ptr as u32, len as u32)?;
+        let res_ptr = f(self, ptr as u32, len as u32)?;
 
         // get result
         let ptr = self.result_get_ptr(res_ptr)?;
@@ -40,17 +40,15 @@ pub trait GalaxyFormatPluginV1_ {
 }
 
 pub trait GalaxyFormatPluginV1 : GalaxyFormatPluginV1_ {
-    fn present(&self, bytes: &[u8]) -> Result<Result<String, String>> {
-        let f = |ptr, len| <Self as GalaxyFormatPluginV1_>::present(self, ptr, len);
-        Ok(match self.handle_call(bytes, &f)? {
+    fn present(&mut self, bytes: &[u8]) -> Result<Result<String, String>> {
+        Ok(match self.handle_call(bytes, &mut <Self as GalaxyFormatPluginV1_>::present)? {
             Ok(bytes) => Ok(String::from_utf8(bytes)?),
             Err(s) => Err(s)
         })
     }
 
-    fn store(&self, s: &str) -> Result<Result<Vec<u8>, String>> {
-        let f = |ptr, len| <Self as GalaxyFormatPluginV1_>::store(self, ptr, len);
-        self.handle_call(s.as_bytes(), &f)
+    fn store(&mut self, s: &str) -> Result<Result<Vec<u8>, String>> {
+        self.handle_call(s.as_bytes(), &mut <Self as GalaxyFormatPluginV1_>::store)
     }
 }
 

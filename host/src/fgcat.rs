@@ -62,9 +62,9 @@ fn main() -> Result<()> {
 
     // load plugin
     // println!("Loading Plugin...");
-    let base_path = "cache/plugins/";
+    let base_path = "fg-index/converters/";
     let full_path: PathBuf = [base_path, &format!("{}{}", converter_hash, ".wasm")].iter().collect();
-    let plugin = WasmtimeGalaxyFormatPlugin::new(&full_path)?;
+    let mut plugin = WasmtimeGalaxyFormatPlugin::new(&full_path)?;
 
     // use plugin to present the content
     match plugin.present(&content_bytes)? {

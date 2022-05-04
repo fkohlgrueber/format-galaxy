@@ -200,10 +200,10 @@ pub fn select_plugin(galaxy: &Galaxy, file_type: &FileType) -> Option<ConverterS
                 
                 if filtered_formats.is_empty() {
                     println!("No matching format found for file with extension \'{}\'", ext);
-                    return None;
+                    galaxy.formats.iter().map(|(id, format)| (id.clone(), format.clone())).collect()
+                } else {
+                    filtered_formats
                 }
-                
-                filtered_formats
             } else {
                 galaxy.formats.iter().map(|(id, format)| (id.clone(), format.clone())).collect()
             };

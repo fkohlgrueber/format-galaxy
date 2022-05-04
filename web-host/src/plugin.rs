@@ -80,37 +80,37 @@ fn call2(f: &Function, a: u32, b: u32) -> Result<JsValue> {
 }
 
 impl GalaxyFormatPluginV1_ for WebGalaxyFormatPlugin {
-    fn alloc(&self, size: u32) -> Result<u32> {
+    fn alloc(&mut self, size: u32) -> Result<u32> {
         to_u32(call1(&self.alloc_fn, size)?)
     }
 
-    fn free(&self, ptr: u32) -> Result<()> {
+    fn free(&mut self, ptr: u32) -> Result<()> {
         call1(&self.free_fn, ptr)?;
         Ok(())
     }
 
-    fn present(&self, ptr: u32, size: u32) -> Result<u32> {
+    fn present(&mut self, ptr: u32, size: u32) -> Result<u32> {
         to_u32(call2(&self.present_fn, ptr, size)?)
     }
     
-    fn store(&self, ptr: u32, size: u32) -> Result<u32> {
+    fn store(&mut self, ptr: u32, size: u32) -> Result<u32> {
         to_u32(call2(&self.store_fn, ptr, size)?)
     }
     
-    fn result_get_ptr(&self, res_ptr: u32) -> Result<u32> {
+    fn result_get_ptr(&mut self, res_ptr: u32) -> Result<u32> {
         to_u32(call1(&self.get_result_ptr_fn, res_ptr)?)
     }
     
-    fn result_get_len(&self, res_ptr: u32) -> Result<u32> {
+    fn result_get_len(&mut self, res_ptr: u32) -> Result<u32> {
         to_u32(call1(&self.get_result_len_fn, res_ptr)?)
     }
     
-    fn result_get_success(&self, res_ptr: u32) -> Result<bool> {
+    fn result_get_success(&mut self, res_ptr: u32) -> Result<bool> {
         Ok(to_u32(call1(&self.get_result_success_fn, res_ptr)?)? > 0)
     }
     
     
-    fn memory_write(&self, ptr: u32, bytes: &[u8]) -> Result<()> {
+    fn memory_write(&mut self, ptr: u32, bytes: &[u8]) -> Result<()> {
         let array = js_sys::Uint8Array::new(&self.memory.buffer());
         for i in 0..bytes.len() as u32 {
             array.set_index(ptr + i, bytes[i as usize]);
@@ -118,7 +118,7 @@ impl GalaxyFormatPluginV1_ for WebGalaxyFormatPlugin {
         Ok(())
     }
     
-    fn memory_read(&self, ptr: u32, len: u32) -> Result<Vec<u8>> {
+    fn memory_read(&mut self, ptr: u32, len: u32) -> Result<Vec<u8>> {
         let mut ret_bytes: Vec<u8> = Vec::with_capacity(len as usize);
         let array = js_sys::Uint8Array::new(&self.memory.buffer());
         for i in 0..len {

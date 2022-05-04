@@ -149,8 +149,8 @@ impl Component for App {
                     }
                 })
             }
-            Msg::PluginReady(plugin) => {
-                if let Some(bytes) = &self.bytes {
+            Msg::PluginReady(mut plugin) => {
+                if let Some(bytes) = &mut self.bytes {
                     if let Ok(Ok(s)) = plugin.present(&bytes) {
                         self.input_text = s;
                     }
@@ -161,7 +161,7 @@ impl Component for App {
                 
             }
             Msg::InputChanged(s) => {
-                if let Some(plugin) = &self.plugin {
+                if let Some(plugin) = &mut self.plugin {
                     match plugin.store(&s) {
                         Err(e) => {
                             self.status = format!("Fatal error: {}", e);
@@ -198,7 +198,7 @@ impl Component for App {
             }
             Msg::FormatSource => {
                 if let Some(bytes) = &self.bytes {
-                    if let Some(plugin) = &self.plugin {
+                    if let Some(plugin) = &mut self.plugin {
                         match plugin.present(bytes) {
                             Err(e) => {
                                 self.status = format!("Fatal error: {}", e);
