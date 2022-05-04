@@ -1,4 +1,4 @@
-#![feature(vec_into_raw_parts)]
+use std::mem::ManuallyDrop;
 
 pub trait GalaxyFormat
 {
@@ -45,7 +45,10 @@ pub mod __mi {
     }
     
     pub fn alloc_result(data: Vec<u8>, success: bool) -> *mut ReturnData {
-        let (ptr, len, capacity) = data.into_raw_parts();
+        // Use `into_raw_parts()` once it's stabilized:
+        //     let (ptr, len, capacity) = data.into_raw_parts();
+        let mut data = ManuallyDrop::new(data);
+        let (ptr, len, capacity) = (data.as_mut_ptr(), data.len(), data.capacity());
         let res_data = ReturnData {
             ptr: ptr as u32, 
             len: len as u32, 
@@ -70,8 +73,10 @@ pub mod __mi {
     
     pub fn alloc(n: u32) -> *mut u8 {
         let v: Vec<u8> = Vec::with_capacity(n as usize);
-    
-        let (ptr, _len, capacity) = v.into_raw_parts();
+        // Use `into_raw_parts()` once it's stabilized:
+        //     let (ptr, _len, capacity) = v.into_raw_parts();
+        let mut v = ManuallyDrop::new(v);
+        let (ptr, _len, capacity) = (v.as_mut_ptr(), v.len(), v.capacity());
         assert!(capacity == n as usize);
         ptr
     }
